@@ -1,5 +1,5 @@
 ; Contains mode entry points for ascii mode.
-; $Id: Mode3,fff,v 1.1 1999-01-06 16:59:26 dj Exp $
+; $Id: Mode3,fff,v 1.1.2.1 1999-01-06 21:06:43 dj Exp $
 
  GET h.ZapHeader
  GET h.Mode0

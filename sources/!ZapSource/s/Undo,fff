@@ -1,5 +1,5 @@
 ; Contains code to buffer undo data and act on it.
-; $Id: Undo,fff,v 1.1 1999-01-06 16:59:27 dj Exp $
+; $Id: Undo,fff,v 1.1.2.1 1999-01-06 21:07:00 dj Exp $
 
  GET h.ZapHeader
  GET h.TMTVars
