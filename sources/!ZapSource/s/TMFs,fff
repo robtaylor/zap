@@ -1,5 +1,5 @@
 ; Contains TMF (configuration) variable code.
-; $Id: TMFs,fff,v 1.1.2.3 1999-05-30 18:36:32 ds Exp $
+; $Id: TMFs,fff,v 1.1.2.4 1999-06-03 23:50:53 ds Exp $
 
 	GET	h.ZapHeader
 	GET	h.Strings
