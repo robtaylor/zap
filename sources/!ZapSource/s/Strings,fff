@@ -1,5 +1,5 @@
 ; Contains misc string handling subs
-; $Id: Strings,fff,v 1.1.2.1 1999-01-06 21:06:57 dj Exp $
+; $Id: Strings,fff,v 1.1.2.2 1999-01-12 00:28:25 ds Exp $
 
  GET h.ZapHeader
  GET h.Heap

@@ -1,5 +1,5 @@
 ; Contains code used by Zap's window-wrapping routines.
-; $Id: Update,fff,v 1.1.2.1 1999-01-06 21:07:01 dj Exp $
+; $Id: Update,fff,v 1.1.2.2 1999-01-12 00:28:30 ds Exp $
 
 	GET	h.ZapHeader
 	GET	h.AlterTxt

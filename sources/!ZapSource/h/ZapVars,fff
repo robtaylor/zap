@@ -1,5 +1,5 @@
 ; Define the variable names for the workspace of the Zap module
-; $Id: ZapVars,fff,v 1.1.2.1 1999-01-06 21:06:14 dj Exp $
+; $Id: ZapVars,fff,v 1.1.2.2 1999-01-12 00:27:32 ds Exp $
 
 if_limit	    * 128
 

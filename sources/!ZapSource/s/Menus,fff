@@ -1,5 +1,5 @@
 ; Contains menu related code.
-; $Id: Menus,fff,v 1.1.2.2 1999-01-10 01:16:28 ds Exp $
+; $Id: Menus,fff,v 1.1.2.3 1999-01-12 00:28:01 ds Exp $
 
  GET h.ZapHeader
  GET h.Cursors

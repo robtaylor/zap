@@ -1,5 +1,5 @@
 ; Define register names.
-; $Id: RegNames,fff,v 1.1.2.1 1999-01-06 21:06:07 dj Exp $
+; $Id: RegNames,fff,v 1.1.2.2 1999-01-12 00:27:26 ds Exp $
 
 ; ARM register names
 

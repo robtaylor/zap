@@ -1,5 +1,5 @@
 ; Contains main module entry start code and wimp poll dispatches.
-; $Id: StartCode,fff,v 1.1.2.2 1999-01-10 01:16:40 ds Exp $
+; $Id: StartCode,fff,v 1.1.2.3 1999-01-12 00:28:23 ds Exp $
 
  GET h.ZapHeader
  GET h.StartUp

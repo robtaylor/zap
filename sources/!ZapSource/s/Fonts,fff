@@ -1,5 +1,5 @@
 ; Contains font code
-; $Id: Fonts,fff,v 1.1.2.2 1999-01-10 01:16:25 ds Exp $
+; $Id: Fonts,fff,v 1.1.2.3 1999-01-12 00:27:58 ds Exp $
 
  GET h.ZapHeader
  GET h.Heap

@@ -1,5 +1,5 @@
 ; Minibuffer code + filename completion + interactive help + line editor
-; $Id: MiniBuff,fff,v 1.1.2.2 1999-01-10 01:16:29 ds Exp $
+; $Id: MiniBuff,fff,v 1.1.2.3 1999-01-12 00:28:05 ds Exp $
 
  GET h.ZapHeader
  GET h.CreateFile

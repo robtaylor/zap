@@ -1,5 +1,5 @@
 ;  SWI numbers for RISC OS
-; $Id: SWIs,fff,v 1.1.2.1 1999-01-06 21:06:08 dj Exp $
+; $Id: SWIs,fff,v 1.1.2.2 1999-01-12 00:27:27 ds Exp $
 
 Xbit						*	&20000
 
