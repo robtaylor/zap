@@ -1,5 +1,5 @@
 ; Contains menu related code.
-; $Id: Menus,fff,v 2.21 2002-11-15 02:04:18 christian Exp $
+; $Id: Menus,fff,v 2.15.2.1 2002-11-15 13:18:39 christian Exp $
 ; -*- armasm -*-
 
  GET h.ZapHeader
@@ -23,12 +23,14 @@
  GET h.Messages
 
  IMPORT create_ColourBox
+ IMPORT conv_font_off
+ IMPORT get_font_off
+ IMPORT find_zap_font
+ IMPORT minimise_font_memory
+ IMPORT add_font_suffix
  IMPORT Bitmapfont
- IMPORT Outlinefont
  IMPORT get_MiniBuf
  IMPORT strcopy
- IMPORT read_dsa_font_name
- IMPORT read_vdu_font_name
 
  EXPORT init_menus
  EXPORT create_menu
@@ -123,7 +125,7 @@ $ll	* menu_num_off
 
 ;E R0=number R10=menu
 ;X buffer of first menu entry filled with number and R0-R2 corrupted |
- FNAME cm_buffernum
+
 cm_buffernum
  FNJSR
  LDR R2,[R10,#28+20]		; buffer length
@@ -134,7 +136,7 @@ cm_buffernum
 
 ;E R0=number R10=menu
 ;X buffer of first menu entry filled with number and R0-R2 corrupted |
- FNAME cm_bufferhex
+
 cm_bufferhex
  FNJSR
  LDR R2,[R10,#28+20]		; buffer length
@@ -148,7 +150,7 @@ cm_bufferhex
 
 ;E R0=string R10=menu
 ;X string copied into menu entry #
- FNAME cm_bufferstring
+
 cm_bufferstring
  FNJSR "R1-R4"
  MOV R2,R0			; source string
@@ -160,7 +162,7 @@ cm_bufferstring
 
 ;E R0=number R5=icon menu number R10=menu
 ;X buffered #
- FNAME cm_bufferhex_icon
+
 cm_bufferhex_icon
  FNJSR "R1-R2"
  ADD R2,R5,R5,LSL#1		; R5*3
@@ -173,7 +175,6 @@ cm_bufferhex_icon
  SWI XOS_ConvertHex8
  FNRTS
 
- FNAME cm_curlist
 cm_curlist
  FNJSR
  FNLDR R1,opt_cursor
@@ -210,8 +211,6 @@ cm_minibuffer
 ; SUBMENU INTERPRET					     ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  LOCAL
-
- FNAME sub_curlist
 sub_curlist
  FNJSR				; R0=new cursor type
  LDR R4,[R11,#-8]		; get cursor number
@@ -245,7 +244,6 @@ sub$l				; very similar to sub in StartCode:palette_changed
  SWIVC XWimp_ForceRedraw
  FNRTS
 
- FNAME sub_minibuffer
 sub_minibuffer
  FNJSR
  MOV R3,#0
@@ -257,7 +255,6 @@ sub_minibuffer
  BL minibuffer_ensure
  FNRTS
 
- FNAME sub_minifont
 sub_minifont
  FNJSR
  MOV R1,#1<<27
@@ -323,14 +320,10 @@ Fontlist
 	BL	shade$l
 	FNRTS
 getlist$l
-	FNJSR
 	MOV	R2,#1<<19:OR:1<<21
-	FNLDR	R0,font_name
-	TEQ	R8,#0
-	BLNE	read_vdu_font_name		; tick the font name
-	MOV	R6,R0
+	FNLDR	R6,font_name
 	SWI	XFont_ListFonts
-	FNRTS
+	MOV	PC,R14
 shade$l	FNJSR	"R1,R2"
 	ADD	R1,R3,#28
 shlp$l	LDMIA	R1,{R2-R4}
@@ -346,14 +339,13 @@ shlp$l	LDMIA	R1,{R2-R4}
 	FNRTS
 old_fontlist$l
  ADR R0,name$l
- ADR R1,build$l
+ ADR R1,build$l+1
  ADR R2,create$l
  ADR R3,exec$l
  MOV R4,#48			; max - was 40...
  MOV R8,#0			; count
  B build_menu
-name$l	=	27,"zap_m_font",0
-	ALIGN
+name$l FNS ("zap_m_font")
 build$l
  FNJSR "R1-R6"
  LDR R14,[R6,#8]
@@ -389,9 +381,16 @@ a$l
 exec$l
  FNJSR "R1,R2"			; preserve for no good reason...?
 exec_gotname$l
- MOV R2,#0
- MOV R0,R10
- BL Outlinefont
+ MOV R0,R10			; font name string
+ BL str_len
+ ADD R1,R0,#8
+ FNLDR R0,font_name
+ BL heap_ensure
+ FNSTR R0,font_name,VC
+ MOVVC R1,R0
+ MOVVC R2,R10
+ BLVC strcopy			; copy in new font name
+ BLVC new_font
  FNRTS
 fontlist_decodemenu
  FNJSR "R1,R2"			; must be same as in exec$l (above)
@@ -431,13 +430,13 @@ Colourlist
  BL lookup_token_R0
  MOV R10,R0
  ADR R0,name$l
- ADR R1,build$l			; build menu sub
+ ADR R1,build$l+1		; build menu sub
  ADR R2,create$l		; put tick by all modes
  ADR R3,sub$l			; toggle all modes button
  MOV R4,#12
  BL build_menu			; create the menu
  FNRTS
-name$l = 27,"zap_m_col",0
+name$l = "zap_m_col",0
 data$l = "zap_m_cols",0
  ALIGN
 
@@ -454,10 +453,10 @@ build$l				; R0=buffer R8=entry number R9=mode entries
  MOVCC R0,#-1			; finish if invalid
  FNRTS CC
  TST R11,#1<<12			; if using token for mode colours,
- MOVEQ R0,R9
+ MOVEQ R10,R9
  MOVNE R0,R9
  BLNE lookup_token_R0		; expand it
- MOV R10,R0
+ MOVNE R10,R0
 nothit9$l
  TST R11,#1<<12			; are we using a token?
  LDRB R0,[R10]
@@ -561,7 +560,7 @@ Newviewlist			; ensure it's a different address
 Removelist
  FNJSR "R1-R11"			; save registers as called by sub_filelist
  ADR R0,name$l
- ADR R1,mwf_sub
+ ADR R1,mwf_sub+1
  ADR R3,sub_filelist
  MOV R4,#13 ; was 12
  FNLDR R8,file_num
@@ -577,8 +576,7 @@ Removelist
  BLVC sort_menu
  MOVVC R0,R1			; restore menu pointer
  FNRTS
-name$l	=	27,"zap_m_file",0
-	ALIGN
+name$l FNS ("zap_m_file")
 
 tick_filelist
  MOV R11,#0			; cntr
@@ -770,7 +768,7 @@ Getmodule$l
  TEQ R2,#16
  FNRTS NE
  ADR R0,name$l
- ADR R1,buildsub$l
+ ADR R1,buildsub$l+1
  MOV R2,#0
  ADR R3,execsub$l
  MOV R4,#22
@@ -780,8 +778,7 @@ Getmodule$l
  BLVC sort_menu
  MOVVC R0,R1			; menu pointer
  FNRTS
-name$l	=	27,"zap_m_module",0
-	ALIGN
+name$l FNS ("zap_m_module")
 buildsub$l
  FNJSR "R1-R5"
  MOV R11,R0			; save buffer pointer
@@ -864,7 +861,7 @@ Modelist
 	MOVNE	PC,R14
 	FNJSR
 	ADR	R0,name$l
-	ADR	R1,buildsub$l
+	ADR	R1,buildsub$l+1
 	MOV	R2,#0
 	MOV	R3,#0
 	MOV	R4,#16
@@ -876,7 +873,7 @@ Modelist
 	MOV	R8,#-3			; mode number
 	BL	build_menu_with_help
 	FNRTS
-name$l	=	27,"zap_m_mode",0
+name$l	=	"zap_m_mode",0
 mhelp$l	=	27,"zap_hm_mode",0
 mode$l	=	27,"zap_h_mode",0
 moder$l	=	27,"zap_h_moder",0
@@ -947,13 +944,13 @@ loadmode$l
 	ADREQL	R11,cmode$l
 	ORR	R0,R0,#1<<31
 	MOVGT	R0,#0
-	ADRGTL	R11,zmode$l
+	ADRGT	R11,zmode$l
 	BICGT	R9,R9,#1<<31
 	STR	R0,[R7,#-12]
 	ADRGTL	R3,Moden
 	ORRGT	R3,R3,#1<<31 :OR: 3<<27
-	ADRLT	R0,lmode+1
-	ADREQ	R0,cmode+1
+	ADRLT	R0,lmode
+	ADREQ	R0,cmode
 	ADRGT	R0,zmode
 	BL	lookup_token_R0
 	MOV	R2,R0
@@ -981,8 +978,8 @@ opensub$l
 	BL	set_mode_menu_title
 	FNRTS
 
-lmode	=	27,"zap_m_lmode",0
-cmode	=	27,"zap_m_cmode",0
+lmode	=	"zap_m_lmode",0
+cmode	=	"zap_m_cmode",0
 zmode	=	"zap_m_zmode",0
 star$l	=	"*",0
 	ALIGN
@@ -1022,7 +1019,7 @@ Loadlist
  TEQ R2,#16
  FNRTS NE
  ADR R0,lmode
- ADR R1,buildsub$l
+ ADR R1,buildsub$l+1
  MOV R2,#0
  ADRL R3,Moden
  ORR R3,R3,#3<<27:OR:1<<31	; command, string parameter
@@ -1076,8 +1073,8 @@ Clonelist
 	TEQ	R2,#16
 	FNRTS	NE
 	FNJSR
-	ADRL	R0,cmode
-	ADR	R1,buildsub$l
+	ADR	R0,cmode
+	ADR	R1,buildsub$l+1
 	MOV	R2,#0
 	ADRL	R3,Moden
 	ORR	R3,R3,#3<<27:OR:1<<31	; command, string parameter
@@ -1118,7 +1115,7 @@ Getdynamicarea
  TEQ R2,#16			; create submenu?
  FNRTS NE
  ADR R0,name$l
- ADR R1,buildsub$l
+ ADR R1,buildsub$l+1
  MOV R2,#0
  ADR R3,execsub$l
  MOV R4,#22
@@ -1134,8 +1131,7 @@ shade$l				; shade item if pre RO 3.5
  MOVLE R0,#2			; yes
  MOVGT R0,#0
  FNRTS
-name$l	=	27,"zap_m_aname",0
-	ALIGN
+name$l FNS ("zap_m_aname")
 buildsub$l
  FNJSR "R1-R8"
  MOV R11,R0			; save buffer pointer
@@ -1196,7 +1192,7 @@ Bitmaplist
  TEQ R2,#16			; create submenu?
  FNRTS NE
  ADR R0,name$l
- ADR R1,buildsub$l
+ ADR R1,buildsub$l+1
  ADR R2,create$l
  ADR R3,execsub$l
 ; MOV R3,#0
@@ -1215,8 +1211,7 @@ shade$l
  MOVEQ R0,#2			; shade if on the options menu
  MOVNE R0,#0
  FNRTS
-name$l	=	27,"zap_m_bitmap",0
-	ALIGN
+name$l FNS ("zap_m_bitmap")
 buildsub$l			; uses WB
  FNJSR "R1-R6"			; NB Updating R7!!
  LDR R0,[R6]
@@ -1264,8 +1259,10 @@ create$l
  CMP R8,#0
  ADREQ R6,dir$l			; anywhere...
  BEQ a$l
- BL read_dsa_font_name
- MOV R6,R0			;
+ LDRNE R0,[R8,#w_font]
+ LDRNE R0,[R0,#font_data0]
+ BLNE conv_font_off		; R7=font block
+ LDR R6,[R7,#4]			; font name
 a$l
  LDR R1,[R5,#12]		; buffer
  MOV R2,R6			; font name
@@ -1292,7 +1289,6 @@ execsub$l			; R3=address of prev item start R10=text
  MOV R2,R10
  BL strcopy
  FNLDR R0,wimp_data		; text for this item = font name
- MOV R2,#0			; 'execute command'
  BL Bitmapfont
  FNRTS
 
@@ -1397,9 +1393,11 @@ create$l			; R10=address of menu = menu name
  FNJSR
  CMP R8,#0			; IB friendly...
  FNRTS EQ
- BL read_dsa_font_name
- MOV R2,R0			;
+ LDR R0,[R8,#w_font]
+ LDR R0,[R0,#font_data0]
+ BL conv_font_off		; R7=font block
  MOV R1,R10			; Font name first part (title bar?)
+ LDR R2,[R7,#4]			; font name
  BL strCMPstr			; R0=char after match
  FNRTS NE			; doesn't match family
  MOV R6,R0
@@ -1440,7 +1438,6 @@ mwbml_execsub			; R3=address of prev item start R10=text
 
  FNLDR R0,wimp_data		; text for this item = font name
 ; PUSH "R0-R12"
- MOV R2,#0			; 'execute command'
  BL Bitmapfont
 ; PULL "R0-R12"
  FNRTS
@@ -1532,9 +1529,12 @@ create$l			; R10=address of menu = menu name
  CMP R8,#0			; IB friendly...
  MOVEQ PC,R14
  FNJSR
- BL read_dsa_font_name
- MOV R2,R0
+ LDR R0,[R8,#w_font]
+ LDR R0,[R0,#font_data0]
+ BL conv_font_off		; R7=font block
+ ;MOV R1,R10			; Font name first part (title bar?)
  ADRL R1,font_path_leaf
+ LDR R2,[R7,#4]			; font name
  BL strCMPstr			; R0=char after match
  FNRTS NE			; doesn't match family
  MOV R6,R0
@@ -1580,7 +1580,6 @@ execsub$l			; R3=address of prev item start R10=text
 
  FNLDR R0,wimp_data		; text for this item = font name
  PUSH "R0-R12"
- MOV R2,#0			; 'execute command'
  BL Bitmapfont
  PULL "R0-R12"
  FNRTS
@@ -1780,7 +1779,7 @@ Typelist
  TEQ R2,#16
  FNRTS NE
  ADR R0,name$l
- ADR R1,build$l
+ ADR R1,build$l+1
  MOV R2,#0			; no creating sub (use Newtype command)
  FNADR R3,ext1$l		; new type command
  ORR R3,R3,#1<<31:OR:2<<27	; it's a command execute type
@@ -1791,29 +1790,28 @@ Typelist
  BLVC sort_menu
  MOVVC R0,R1
  FNRTS
-name$l	=	27,"zap_m_ftype",0
-	ALIGN
+name$l FNS ("zap_m_ftype")
 ext1$l DCD Newtype
 build$l
  FNJSR "R1-R4"
  LDR R14,[R6,#8]		; possibly a flags problem...?
  BIC R14,R14,#(1<<3)+(1<<6)+(1<<7)
  STR R14,[R6,#8]		; possibly a flags problem...?
- MOV R1,R0			; pointer to buffer
- MOV R2,#32			; buffer len
- MOV R3,R8			; name pointer
+ MOV R1,R0                      ; pointer to buffer
+ MOV R2,#32                     ; buffer len
+ MOV R3,R8                      ; name pointer
  MOV R4,#3
  ADR R0,type$l
  SWI XOS_ReadVarVal
  MOVVS R0,#-1			; no more
  BVS end$l
  MOV R0,#0
- STRB R0,[R1,R2]		; terminate string
- ADD R1,R3,#10			; start of hex digits
- BL hex_read			; convert to filetype in R0
- MOV R8,R3			; save new name pointer
+ STRB R0,[R1,R2]                ; terminate string
+ ADD R1,R3,#10                  ; start of hex digits
+ BL hex_read                    ; convert to filetype in R0
+ MOV R8,R3                      ; save new name pointer
 end$l
- ADDS R0,R0,#0			; clv
+ ADDS R0,R0,#0                  ; clv
  FNRTS
 type$l FNS ("File$Type_*")
 
@@ -1827,7 +1825,7 @@ Basemaplist
 	TEQ	R2,#16
 	FNRTS	NE
 	ADR	R0,name$l
-	ADR	R1,build$l
+	ADR	R1,build$l+1
 	MOV	R2,#0		; no creating sub (use Basemap command)
 	FNADR	R3,cmd$l	; new type command
 	ORR	R3,R3,#1<<31:OR:2<<27 ; it's a command execute type
@@ -1839,7 +1837,7 @@ Basemaplist
 	BLVC	sort_menu
 	MOVVC	R0,R1
 	FNRTS
-name$l	=	27,"zap_m_basemap",0
+name$l	=	"zap_m_basemap",0
 maph$l	=	27,"zap_h_basemap",0
 	ALIGN
 cmd$l	DCD	Basemap
@@ -1941,7 +1939,7 @@ sm_cursor_help
 ;X mode menus, main menu and Zap menu structures created  #
 ;  (Now creates them in heap blocks)
 ;  memory 0=reserved 1=reserved 2=curlist 3=minibuffer 4=cursor
- FNAME init_menus
+
 init_menus
  FNJSR "R1-R2"
  FNLDR R2,menu_memory		; address of 16 word memory
@@ -1977,7 +1975,7 @@ expand$l
 
 ;E R10=start of menu structure title string
 ;X R0=created menu (+4)/0 if it wasn't valid #
- FNAME read_one_menu
+
 read_one_menu
  FNJSR "R1-R7,R10-R11"
  BL read_count_menu		; find number of entries
@@ -2071,7 +2069,7 @@ colours$l & &70207
 ;  R1=total amount of storage space needed for the menu entry strings
 ;  R2=space per menu entry
 ;  R3=menu help text space #
- FNAME read_count_menu
+
 read_count_menu
 	FNJSR	"R9-R11"
 	MOV	R11,#0			; number found so far
@@ -2124,7 +2122,7 @@ errh$l	FNPULL
 ;E R10=somewhere on a menu entry line
 ;X R10=start of next line after the indenting spaces CS if there are no
 ;  more entries
- FNAME next_menu_entry
+
 next_menu_entry
  FNJSR
  BL str_next			; start of next line
@@ -2142,7 +2140,7 @@ a$l
 
 ;E R0=menu handle
 ;X R1=pointer to wimp menu structure (+8) /0
- FNAME read_menu_handle
+
 read_menu_handle
  FNJSR
  FNLDR R1,menu_handles
@@ -2157,7 +2155,7 @@ read_menu_handle
 ;E R3=menu entry to create R4=start of scratch space
 ;  R6=max len of entry text (from read_count_menu) R10=input file text
 ;X R0-R2 corrupted R4 updated R3 decremented to delete the entry #
- FNAME read_one_entry
+
 read_one_entry
  FNJSR "R5-R7,R10"
  MOV R0,#0
@@ -2252,7 +2250,7 @@ getanull$l
 
 ;E R7=the command to create the box for R10=command name string
 ;X R0=address of the leaf box menu
- FNAME create_leaf_box
+
 create_leaf_box
  FNJSR "R1-R6"
  LDR R4,[R7,#-4]		; get the command flags
@@ -2323,7 +2321,7 @@ header$l
  LOCAL
 
 ; creation sub for a leaf menu box (index=the command address)
- FNAME cm_leaf_box
+
 cm_leaf_box
  FNJSR
  ADD R6,R10,#28			; first menu entry
@@ -2385,7 +2383,7 @@ c$l
  LOCAL
 
 ; interpret sub for a leaf menu box (index=the command address)
- FNAME sub_leaf_box
+
 sub_leaf_box
  FNJSR
  ADDS R7,R1,#0			; index = the command address
@@ -2412,7 +2410,7 @@ temp$l DCD 0
 ;E R0=source menu (in old Zap relocatable format)
 ;  R1=base for offsets (start of module)
 ;X R0=wimp created menu structure (zap+8) (in heap block) |
- FNAME create_menu_structure
+
 create_menu_structure
  FNJSR "R10"
  MOV R10,R1
@@ -2425,7 +2423,7 @@ create_menu_structure
 ;  R10=module start (start of module used for offsets)
 ;X R0=menu(+4) (now stored in a heap block) |
 ;  Internal  R1=current source  R2=current destination R3=start dest
- FNAME cms_sub
+
 cms_sub
  FNJSR "R1-R11"
  MOV R1,R0			; source structure
@@ -2536,7 +2534,7 @@ cols$l DCD &00070207		; work area colours
 ;X R0=size of buffer needed for this entry (inc term and aligned)
 ;  R1=next item pointer
 ;  EQ if at menu end (this was the last menu item) |
- FNAME cms_next
+
 cms_next
  FNJSR "R2,R3"
  LDRB R0,[R1,#1]		; minimum buffer size
@@ -2566,7 +2564,7 @@ a$l
 ;X Text for this entry set up and pointer written, len, validation string
 ;  Icon flags for this entry set up
 ;  R6 updated to next free location |
- FNAME cms_icon
+
 cms_icon
  FNJSR "R1-R5"
  MOV R4,R1			; R4=source
@@ -2611,7 +2609,7 @@ icon$l DCD &00009131		; icon flags (indirect text)
 
 ;E R1=pointer to menu (zap+8)
 ;X key short cuts shown on this one menu (not recursive) #
- FNAME show_menu
+
 show_menu
  FNJSR "R1,R2,R6-R11"
  LDR R6,[R1,#-12]		; get menu max width
@@ -2628,8 +2626,8 @@ loop$l
  LDR R14,ouch$l
  TEQ R8,R14
  BL find_key$l			; get associated key in R0
- BL hide_key$l
  CMP R0,#0
+ BL hide_key$l
  BMI next$l			; no key
  PUSH "R1"
  TEQ R6,#0			; if menu max width is 0,
@@ -2664,13 +2662,13 @@ a$l	LDRB	R0,[R1],#1
 	TEQ	R3,#0
 	MOVNE	R0,#0
 	STRNEB	R0,[R3]
-	FNRTS
+	FNRTSS
 
  LOCAL
 
 ;E R1=menu address R2=mouse x R3=mouse y R4=mode (if R3b31 set) R8/R9
 ;X menu updated and opened & wimp_menuptr/wimp_menu updated #
- FNAME create_menu
+
 create_menu
  FNJSR "R1-R3"
  TST R3,#1<<31
@@ -2692,7 +2690,7 @@ a$l
 
 ;E R1=menu address R2=mouse x R3=mouse y R8/R9
 ;X menu updated and opened etc.
- FNAME open_menu
+
 open_menu
  FNJSR "R11"
  FNLDR R0,menu_count
@@ -2716,7 +2714,7 @@ open_menu
 ;
 ;E R0=offset in previous menu/0 R1=menu to update  R8/R9=source window
 ;X menu updated (not recursive) #
- FNAME update_menu
+
 update_menu
  CMP R1,#&100
  MOVCC PC,R14			; serious problems...
@@ -2731,8 +2729,8 @@ update_menu
  FNRTS GE			; already updated
  STR R3,[R1,#-8]		; new update time
  LDR R11,[R1,#-4]		; creation address ; problem with longfiles!?
- TEQ R11,#0
- BEQ com$l			; do the commands
+ CMP R11,#0
+ BLE com$l			; do the commands (0 or bit set)
  MOV R10,R1			; menu address
  TEQ R8,#0
  FNLDR R7,opt_flags,EQ
@@ -2743,6 +2741,31 @@ update_menu
  MOV PC,R11			; call the sub
  FNRTS				; finished
 com$l				; creation address le 0
+ BICS R11,R11,#1<<31		; address of the source menu
+ BEQ gotmenu$l			; already got the menu
+ PUSH "R1"
+ LDR R3,[R11],#4		; length of the menu
+ ADD R2,R1,#28			; destination (first entry)
+ MOV R1,R11			; source
+ SWI XZapRedraw_MoveBytes	; BL move_bytes	; copy in the menu
+ LDR R3,[R11],#4		; length of the menu
+ ADD R2,R1,#28			; destination (first entry)
+ MOV R1,R11			; source
+ SWI XZapRedraw_MoveBytes	; BL move_bytes	; copy in the menu
+ LDR R2,[R13]
+ LDR R2,[R2,#-16]		; help text buffer ptr
+ TEQ R2,#0
+ BEQ nohelp$l
+ LDR R1,[R11,#-4]
+ ADD R1,R11,R1
+copyhelp$l
+ LDR R0,[R1],#4
+ STR R0,[R2],#4
+ CMP R0,#-1
+ BNE copyhelp$l
+nohelp$l
+ PULL "R1"
+gotmenu$l			; menu has been copied if need be
  MOV R11,R1			; save the menu start
  BL show_menu
  ADD R6,R11,#28			; first item
@@ -2757,6 +2780,51 @@ a$l
  BIC R7,R7,#&FC<<24		; command address (maybe b0 set)
  BL get_command_flags
  MOV R4,R0			; command flags
+; TST R7,#1
+; TSTNE R0,#1<<15:OR:1<<18:OR:1<<19:OR:1<<20
+; BEQ comok$l
+; LDR R0,[R5,#-4]
+; AND R0,R0,#&FC<<24
+; ORR R0,R0,R7
+; STR R0,[R5,#-4]		; new interpret code address
+;comok$l				; validated the command address
+ TST R4,#1<<20			; possibly delete this entry?
+ BEQ nodel$l
+
+ MOV R2,#20			; command reason code
+ BL menu_process_key_command
+ FNRTS VS
+ TST R0,#1
+ BEQ nodel$l			; don't delete the entry
+ LDR R0,[R11,#-4]
+ TST R0,#1<<31
+ BLEQ update_menu_backup	; make a backup copy before we delete
+ FNRTS VS
+ MOV R0,R6
+ BL count_menu_entries		; R0=number of entries left
+ SUBS R0,R0,#1			; number to shift
+ BLE lastitem$l
+ ADD R1,R6,#24			; source
+ MOV R2,R6
+ ADD R3,R0,R0,LSL#1
+ MOV R3,R3,LSL#3
+ SWI XZapRedraw_MoveBytes	; BL move_bytes	; shift next entry down
+ LDR R1,[R13]
+ LDR R1,[R1,#-16]
+ TEQ R1,#0
+ BEQ a$l			; ...no help text
+ ADD R1,R1,R9,LSL #2
+shifthelp$l			; 'remove' a help text entry
+ LDR R0,[R1,#4]
+ STR R0,[R1],#4
+ CMP R0,#-1
+ BNE shifthelp$l
+ B a$l				; try doing this entry again
+lastitem$l			; tried to remove the last item
+ LDR R0,[R6,#-24]
+ ORR R0,R0,#1<<7		; make previous item the last
+ STR R0,[R6,#-24]
+ B trimspaces$l
 nodel$l				; don't delete the entry R4=flags etc
  TST R4,#1<<18
  BEQ gottxt$l
@@ -2911,7 +2979,7 @@ loop$l
 ;  R0,R7 not set up
 ;  R9 treated as invalid
 ;X R0,R2,R7 changed
- 	FNAME	menu_process_key_command
+
 menu_process_key_command
 	FNJSR	"R9"
 	LDR	R7,[R5,#-4]
@@ -2935,13 +3003,46 @@ menu_process_key_command
 
 	LOCAL
 
+;E R11=address of the menu
+;X menu backed up and R11,#-4 has the address of the backup copy +b31
+;  Backup copy is of the form length,backup[,help ptrs (-1 term)] #
+;  (The [] part is only present if the menu has help text)
+
+update_menu_backup
+	FNJSR	"R1-R5"
+	ADD	R0,R11,#28		; first item
+	BL	count_menu_entries	; R0=number of entries
+	ADD	R4,R0,#2
+	ADD	R3,R0,R0,LSL#1
+	MOV	R3,R3,LSL#3		; size of backup
+	LDR	R0,[R11,#-16]
+	TEQ	R0,#0
+	ADDNE	R0,R3,#4
+	ADDNE	R0,R0,R4,LSL #2
+	BL	heap_claim
+	FNRTS	VS
+	ORR	R14,R0,#1<<31
+	STR	R14,[R11,#-4]
+	STR	R3,[R0],#4
+	ADD	R1,R11,#28
+	MOV	R2,R0
+	ADD	R5,R0,R3
+	SWI	XZapRedraw_MoveBytes ; BL move_bytes
+	LDR	R1,[R11,#-16]
+	TEQ	R1,#0
+	MOVNE	R2,R5
+	MOVNE	R3,R4,LSL #2
+	SWINE	XZapRedraw_MoveBytes
+	FNRTS
+
+ LOCAL
 
 ;E R1=root node of the menu
 ;  R8/R9=window
 ;  R11=block with -1 terminated list of the selected path
 ;X All menus on selected path are updated. Menu warn code called as it
 ;  follows the path. menu_count incremented first #
- FNAME update_menu_path
+
 update_menu_path
  FNJSR "R1-R2,R5,R11"
  FNLDR R0,menu_count
@@ -2980,7 +3081,6 @@ a$l
 
  LOCAL
 
- FNAME menu_warning
 menu_warning
  FNJSR
  MOV R11,R1			; start of data block
@@ -3017,7 +3117,7 @@ a$l
 ;  R5=offset in previous menu
 ;  R8/R9=window /0
 ;X R1=handle of window to open or pointer to submenu or 0 if none.
- FNAME call_warn_code
+
 call_warn_code
  FNJSR "R2,R7,R10"
  LDR R10,[R2,#12]		; text of the entry
@@ -3052,8 +3152,8 @@ a$l
 
  LOCAL
 
-;E R0=menu name (max 12 chars)  (or 27,token form)
-;  R1=address of sub to create the menu
+;E R0=menu name (max 12 chars)
+;  R1=address of sub to create the menu (b0 set if menu name is a token)
 ;  R2=address of cm_sub to update the menu /0
 ;  R3=address of interpret sub for each menu entry /0
 ;  R4=menu width in characters
@@ -3069,7 +3169,7 @@ a$l
 ;    R1=help text (first byte=ESC if token) [statically stored] or 0 / saved
 ;    R2-R7 saved (unless you alter R7 deliberately - beware)
 ;    R8-R11 updated (for your use, and passed back to you) #
- FNAME build_menu_with_help
+
 build_menu_with_help
  FNJSR "R1-R11"
  PUSH "R5"			; save help ptr
@@ -3105,11 +3205,9 @@ jump_in$l
  MOV R0,#0
  STR R0,[R6],#4			; save max len
  STMIA R6!,{R0,R2}		; save count & creation address
+ TST R1,#1			; menu name is a token?
  MOV R0,R5
- LDRB R5,[R0]
- TEQ R5,#27			; menu name is a token?
- ADDEQ R0,R0,#1
- BLEQ lookup_token_R0
+ BLNE lookup_token_R0
  MOV R2,R0
  MOV R0,#12
  MOV R1,R6
@@ -3169,6 +3267,7 @@ findend$l
  MOV R14,#-1
  STR R14,[R0,R3]!
  STR R2,[R0,#-4]		; store help text ptr
+ LDR R3,[R13,#8]		; restore R3
 nohelp$l
  CMN R5,#1			; finished?
  ADDNE R6,R6,#24
@@ -3229,7 +3328,7 @@ null$l
 
 ; ensure menu_struct has 36 bytes free and menu_entries 64 bytes free
 ; R6 and R7 are corresponding pointers to update. #
- FNAME build_menu_ensure
+
 build_menu_ensure
  FNJSR "R1"
 
@@ -3286,7 +3385,6 @@ re33
 ;E R0=pointer to a list of 24 byte menu entries
 ;X R0=number of entries in the list |
 
- FNAME count_menu_entries
 count_menu_entries
  FNJSR "R1"
  MOV R1,#0			; zero the count
@@ -3304,7 +3402,6 @@ a$l
 ;X R0=height of the entries in OS coords including dashes |
 ;  (Excludes title as so do open coords)
 
- FNAME count_menu_size
 count_menu_size
  FNJSR "R1-R2"
  LDR R2,[R0,#20]		; height of entries
@@ -3325,7 +3422,6 @@ a$l
 ;E R1=pointer to menu structure
 ;X R0=num of menu entries & bit 7 of last item cleared |
 
- FNAME count_menu_clear
 count_menu_clear
  FNJSR "R1"
  ADD R1,R1,#28			; first item
@@ -3341,7 +3437,6 @@ count_menu_clear
 ;E R0=number of entries R1=menu structure
 ;X stop bit added |
 
- FNAME add_menu_stop
 add_menu_stop
  FNJSR
  ADD R0,R0,R0,LSL#1		; *3
@@ -3354,7 +3449,6 @@ add_menu_stop
 ;E R0=menu structure
 ;X sorted to alphabetical order #
 
- FNAME sort_menu
 sort_menu
  FNJSR "R1-R11"
  MOV R1,R0			; menu structure
@@ -3414,7 +3508,6 @@ so2
 ;E R0=num objects R1=pointers list R4=objs start R5=objs size
 ;X actual objects sorted #
 
- FNAME sort_objects
 sort_objects
  FNJSR "R1-R4,R10"
  MOV R10,R0			; num objects left
@@ -3447,7 +3540,6 @@ so6
 ;E As for build_menu but uses the font menu buffer
 ;X As for build_menu
 
- FNAME build_font_menu
 build_font_menu
  FNJSR "R6-R7"
  BL swap$l
@@ -3510,7 +3602,6 @@ swapmenu			; swap over without changing flags
 ;     R11=menu sequence end (end of block returned by wimp)
 ;  ;X may corrupt R0-R11 #
 
- FNAME menu_click
 menu_click
  FNJSR "R1-R11"
  BL menu_decode			; R2=item R3=last item R11=sequence end
@@ -3558,9 +3649,9 @@ fake$l
 	MOV	R14,R13
 	PUSH	"R0-R5,R10"
 	LDMIA	R10,{R0-R5}	; read w_pwind...w_pwidth
-	STMIA	R14!,{R0-R5}	; store them in fake block
+	STMIA   R14!,{R0-R5}	; store them in fake block
 	MOV	R10,#0
-	STMIA	R14!,{R0-R2,R5,R10} ; fill out the rest of the block
+	STMIA   R14!,{R0-R2,R5,R10} ; fill out the rest of the block
 	PULL	"R0-R5"
 	ADD	R10,R13,#4	; point R10 at the fake block
 	BL	process_key_command
@@ -3594,7 +3685,6 @@ outline$l			; for outline fonts...
 ;X R0=help text / 0 |
 ;  (Called in response to message Help_Request; uses wimp_kbdbuf)
 
-	FNAME	menu_get_help
 menu_get_help
 	FNJSR	"R1-R7,R11"
 	LDR	R4,[R11]
@@ -3651,7 +3741,6 @@ outline$l =	"zap_h_outline",0
 ;  If clicked item is in menu generated by Font_ListFonts, then
 ;    R2->relevant menu offsets R3=0
 
- FNAME menu_decode
 menu_decode
  FNJSR "R1,R4"
  ADD R2,R1,#28			; current chosen item
@@ -3682,7 +3771,6 @@ me1
 ;E Heap set up
 ;X Menu file read into heap blocks and then linked #
 
- FNAME load_menus
 load_menus
  FNJSR "R1,R8-R11"
 ; FNLDR R0,menu_handles
@@ -3702,7 +3790,6 @@ str$l = "<",|zap$|,"$Menus>",0
 ;E R0=pointer to filename of Zap_menu file
 ;X R0=list of menu handles or <=0 #
 
- FNAME load_menu
 load_menu
  FNJSR "R1"
  MOV R1,R0
@@ -3718,7 +3805,6 @@ read$l
 ;X R0=pointer to heap block containing number of handle, handle0, etc
 ;  or 0 if file invalid
 
- FNAME read_menu
 read_menu
  FNJSR "R10"
  MOV R10,R0
@@ -3734,7 +3820,6 @@ read_menu
 ;E R4=menu handles (+4)
 ;X Menus linked to each other #
 
- FNAME link_menus
 link_menus
  FNJSR "R1-R6"
  LDR R3,[R4,#-4]			; number of valid handles
@@ -3772,7 +3857,6 @@ end$l					; done this entry
 ;E R10=start of zero termianted menu file
 ;X R4=pointer to menu handles block (+4) #
 
- FNAME read_menus
 read_menus
  FNJSR "R1-R3,R10"
  MOV R4,#0			; address of menu handles (+4)
