@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: docsrc.pl,v 1.1 1998-12-03 15:49:04 dj Exp $
+# $Id: docsrc.pl,v 1.1.1.1 1998-12-03 15:49:04 dj Exp $
 #
 # docsrc.pl
 # Written by Simon Tatham; generalised a little by James Aylett

@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: makeman,v 1.1 1998-12-03 15:49:04 dj Exp $
+# $Id: makeman,v 1.1.1.1 1998-12-03 15:49:04 dj Exp $
 #
 # makeman
 # Build Zap manual
