@@ -1,6 +1,6 @@
 ; Contains startup code including read/writing config file etc.
 ; Also contains some misc error code
-; $Id: StartUp,fff,v 1.1.2.12 1999-02-11 01:53:56 ds Exp $
+; $Id: StartUp,fff,v 1.1.2.13 1999-02-14 23:19:59 ds Exp $
 
  GET h.ZapHeader
  GET h.Messages
