@@ -1,5 +1,5 @@
 ; Contains Zap search/replace code and throwback generation
-; $Id: Search,fff,v 1.1 1999-01-06 16:59:26 dj Exp $
+; $Id: Search,fff,v 1.2 1999-01-12 18:24:08 dj Exp $
 
 	GET	h.ZapHeader
 	GET	h.Template

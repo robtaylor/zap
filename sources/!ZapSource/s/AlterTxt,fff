@@ -1,5 +1,5 @@
 ; Contains code to alter the text in the buffer.
-; $Id: AlterTxt,fff,v 1.1 1999-01-06 16:59:23 dj Exp $
+; $Id: AlterTxt,fff,v 1.2 1999-01-12 18:23:38 dj Exp $
 
  GET h.ZapHeader
  GET h.Heap

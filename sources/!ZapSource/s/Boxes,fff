@@ -1,6 +1,6 @@
 ; Contains code for creating and dealing with clicks and key presses in
 ; specific template boxes.
-; $Id: Boxes,fff,v 1.1 1999-01-06 16:59:23 dj Exp $
+; $Id: Boxes,fff,v 1.2 1999-01-12 18:23:39 dj Exp $
 
 	GET	h.ZapHeader
 	GET	h.Strings

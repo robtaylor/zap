@@ -1,5 +1,5 @@
 ; Contains code to create/delete/install window blocks + ww & sw code...
-; $Id: CreateWind,fff,v 1.1 1999-01-06 16:59:24 dj Exp $
+; $Id: CreateWind,fff,v 1.2 1999-01-12 18:23:43 dj Exp $
 
  GET h.ZapHeader
  GET h.Template

@@ -1,5 +1,5 @@
 ; Contains mode entry points for byte mode.
-; $Id: Mode1,fff,v 1.1 1999-01-06 16:59:25 dj Exp $
+; $Id: Mode1,fff,v 1.2 1999-01-12 18:23:57 dj Exp $
 
  GET h.ZapHeader
  GET h.Mode0

@@ -1,5 +1,5 @@
 ; Contains code to create/delete/install/saving file blocks.
-; $Id: CreateFile,fff,v 1.1 1999-01-06 16:59:24 dj Exp $
+; $Id: CreateFile,fff,v 1.2 1999-01-12 18:23:42 dj Exp $
 
 ; OPTIONS >>>
 USE_WRITE_FILES * 0

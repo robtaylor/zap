@@ -1,5 +1,5 @@
 ; Contains heap/memory management code
-; $Id: Heap,fff,v 1.1 1999-01-06 16:59:25 dj Exp $
+; $Id: Heap,fff,v 1.2 1999-01-12 18:23:51 dj Exp $
 
  GET h.ZapHeader
 

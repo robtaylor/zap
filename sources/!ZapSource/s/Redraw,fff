@@ -1,5 +1,5 @@
 ; Contains redraw related code.
-; $Id: Redraw,fff,v 1.1 1999-01-06 16:59:26 dj Exp $
+; $Id: Redraw,fff,v 1.2 1999-01-12 18:24:06 dj Exp $
 
  GET h.ZapHeader
 
